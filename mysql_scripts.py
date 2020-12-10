@@ -100,7 +100,7 @@ def insert_many_data(cursor, connection, list_of_columns, records_to_insert, tab
 def delete_data(cursor, connection, table_name):
     query_string = """DELETE FROM """ + table_name
     try:
-        result = cursor.execute(query_string)
+        cursor.execute(query_string)
         print("Data deleted successfully from table: {}".format(table_name))
         connection.commit()
     except mysql.connector.Error as error:

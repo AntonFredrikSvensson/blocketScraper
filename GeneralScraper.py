@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup, Tag
 import urllib.request
 import datetime
 import BlocketDateTime
+import mysql_scripts
 
 def scrape(url, time_of_last_scrape):
     sauce = urllib.request.urlopen(url).read()
@@ -9,7 +10,7 @@ def scrape(url, time_of_last_scrape):
     pages_content = []
     if(time_of_last_scrape == None):
         no_of_pages = fetch_pages(soup)
-        no_of_pages = 10 ##TODO remove variable after tests
+        # no_of_pages = 10 ##TODO remove variable after tests
     else:
         no_of_pages = 200000
     for page in range(no_of_pages):
@@ -21,6 +22,8 @@ def scrape(url, time_of_last_scrape):
             sauce = urllib.request.urlopen(newurl).read()
             soup = BeautifulSoup(sauce,'lxml')
         scraped_page = scrape_page(soup, time_of_last_scrape)
+        if scraped_page == None:
+            break
         if scraped_page[len(scraped_page)-1] == None:
             scraped_page.pop()
             quit = True
@@ -29,17 +32,30 @@ def scrape(url, time_of_last_scrape):
         if quit:
             break
         print('page: ' + str(page +1))
+        if page % 250 == 0:
+            insert_to_database(pages_content)
+            pages_content = []
+            #inserted to database
     # print(pages_content[2][0])
-    print(len(pages_content))
+    insert_to_database(pages_content)
+    # print(len(pages_content))
 
 def fetch_pages(soup):
-    page_buttons = soup.findAll("a", {"class": "gZwUSm"})
-    no_of_page_buttons = len(page_buttons)
-    no_of_pages = int(page_buttons[no_of_page_buttons-1].text)
-    return no_of_pages
+    links = soup.findAll('a')
+    max_page_number = 0
+    for link in links:
+        href = link.get('href')
+        if href[0:28] == "/annonser/hela_sverige?page=":
+            href_split = href.split("=")
+            page_number = int(href_split[1])
+            if page_number > max_page_number:
+                max_page_number = page_number
+    return max_page_number
     
 def scrape_page(soup, time_of_last_scrape):
     articles = soup.findAll('article')
+    if len(articles)==0:
+        return None
     article_list = extract_articles(articles)
     articles_content = extract_article_content(article_list, time_of_last_scrape)
     return articles_content
@@ -68,21 +84,22 @@ def extract_article_content(article_list, time_of_last_scrape):
         if article_datetime == None:
             #TODO errorlog missing date
             article_datetime = datetime.datetime.now()
-        if time_of_last_scrape > article_datetime:
-            articles_content.append(None)
-            break
-        else:
-            content = {
-                "location":location_time_topinfo[0],
-                "time":article_datetime,
-                "top_info":location_time_topinfo[2],
-                "href":subject_wrapper[0],
-                "subject_text":subject_wrapper[1],
-                "item_id":int(subject_wrapper[2]),
-                "price":sales_info_wrapper[0],
-                "price_text":sales_info_wrapper[1]
-            }
-            articles_content.append(content)
+        if time_of_last_scrape != None:
+            if time_of_last_scrape > article_datetime:
+                articles_content.append(None)
+                break
+            # content = {
+            #     "location":location_time_topinfo[0],
+            #     "time":article_datetime,
+            #     "top_info":location_time_topinfo[2],
+            #     "href":subject_wrapper[0],
+            #     "subject_text":subject_wrapper[1],
+            #     "item_id":int(subject_wrapper[2]),
+            #     "price":sales_info_wrapper[0],
+            #     "price_text":sales_info_wrapper[1]
+            # }
+        content = (location_time_topinfo[0],article_datetime,location_time_topinfo[2],subject_wrapper[0],subject_wrapper[1],int(subject_wrapper[2]),sales_info_wrapper[0],sales_info_wrapper[1])
+        articles_content.append(content)
     return articles_content
 
 
@@ -133,6 +150,20 @@ def extract_price(sales_info):
     price_info = [price, price_text]
     return price_info
 
+def insert_to_database(records_to_insert):
+    connection_string_database = {
+    "host":"localhost",
+    "user":"root",
+    "password":"root",
+    "database":"blocket_data"
+    }
+    connection = mysql_scripts.create_connection(connection_string_database, "local_database")
+    cursor = mysql_scripts.create_cursor(connection)
+    list_of_columns = ["location", "time", "top_info", "href", "subject_text", "item_id", "price", "price_text"]
+    table_name = "articles"
+    mysql_scripts.insert_many_data(cursor, connection, list_of_columns, records_to_insert, table_name)
+    
+
 # def test_scrape_single_page(url):
 #     sauce = urllib.request.urlopen(url).read()
 #     soup = BeautifulSoup(sauce,'lxml')
@@ -142,5 +173,6 @@ def extract_price(sales_info):
 
 url = 'https://www.blocket.se/annonser/hela_sverige?'
 # test_scrape_single_page(url)
-time_of_last_scrpe = datetime.datetime(2020,12,3,23,50,00)
-scrape(url, time_of_last_scrpe)
+# time_of_last_scrape = datetime.datetime(2020,12,3,23,50,00)
+time_of_last_scrape = None
+scrape(url, time_of_last_scrape)
