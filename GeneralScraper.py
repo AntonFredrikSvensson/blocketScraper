@@ -4,13 +4,21 @@ import datetime
 import BlocketDateTime
 import mysql_scripts
 
-def scrape(url, time_of_last_scrape):
+def scrape(url):
+    connection_string_database = {
+    "host":"localhost",
+    "user":"root",
+    "password":"root",
+    "database":"blocket_data"
+    }
+    connection = mysql_scripts.create_connection(connection_string_database, "local_database")
+    time_of_last_scrape = get_time_of_last_scrape(connection)
     sauce = urllib.request.urlopen(url).read()
     soup = BeautifulSoup(sauce,'lxml')
     pages_content = []
+    no_of_articles = 0
     if(time_of_last_scrape == None):
         no_of_pages = fetch_pages(soup)
-        # no_of_pages = 10 ##TODO remove variable after tests
     else:
         no_of_pages = 200000
     for page in range(no_of_pages):
@@ -22,6 +30,8 @@ def scrape(url, time_of_last_scrape):
             sauce = urllib.request.urlopen(newurl).read()
             soup = BeautifulSoup(sauce,'lxml')
         scraped_page = scrape_page(soup, time_of_last_scrape)
+        if page == 0:
+            time_of_first_article = scraped_page[0][1]
         if scraped_page == None:
             break
         if scraped_page[len(scraped_page)-1] == None:
@@ -32,13 +42,17 @@ def scrape(url, time_of_last_scrape):
         if quit:
             break
         print('page: ' + str(page +1))
-        if page % 250 == 0:
-            insert_to_database(pages_content)
+        if page != 0 and page % 250 == 0:
+            insert_articles_to_database(connection,pages_content)
+            no_of_articles += len(pages_content)
             pages_content = []
             #inserted to database
     # print(pages_content[2][0])
-    insert_to_database(pages_content)
+    insert_articles_to_database(connection,pages_content)
+    no_of_articles += len(pages_content)
+    time_of_scrape = datetime.datetime.now()
     # print(len(pages_content))
+    insert_to_scrape_log(connection,time_of_scrape, time_of_first_article, no_of_articles)
 
 def fetch_pages(soup):
     links = soup.findAll('a')
@@ -150,19 +164,29 @@ def extract_price(sales_info):
     price_info = [price, price_text]
     return price_info
 
-def insert_to_database(records_to_insert):
-    connection_string_database = {
-    "host":"localhost",
-    "user":"root",
-    "password":"root",
-    "database":"blocket_data"
-    }
-    connection = mysql_scripts.create_connection(connection_string_database, "local_database")
+def insert_articles_to_database(connection,records_to_insert):
     cursor = mysql_scripts.create_cursor(connection)
     list_of_columns = ["location", "time", "top_info", "href", "subject_text", "item_id", "price", "price_text"]
     table_name = "articles"
     mysql_scripts.insert_many_data(cursor, connection, list_of_columns, records_to_insert, table_name)
+    mysql_scripts.close_cursor(cursor)
     
+
+def insert_to_scrape_log(connection, time_of_scrape,time_of_first_article,no_of_articles):
+    cursor = mysql_scripts.create_cursor(connection)
+    mysql_scripts.temporary_scrape_history_insert(connection,cursor,time_of_scrape,time_of_first_article,no_of_articles)
+    mysql_scripts.close_cursor(cursor)
+
+
+def get_time_of_last_scrape(connection):
+  cursor = mysql_scripts.create_cursor(connection)
+  table_name = "scrape_log"
+  condition_dict = None
+  selection_columns_list = ['time_of_first_article', 'time_of_scrape', 'no_of_articles']
+  data = mysql_scripts.select_data(cursor,connection,selection_columns_list,table_name,condition_dict)
+  mysql_scripts.close_cursor(cursor)
+  time_of_first_article = data[-1][0]
+  return time_of_first_article
 
 # def test_scrape_single_page(url):
 #     sauce = urllib.request.urlopen(url).read()
@@ -173,6 +197,4 @@ def insert_to_database(records_to_insert):
 
 url = 'https://www.blocket.se/annonser/hela_sverige?'
 # test_scrape_single_page(url)
-# time_of_last_scrape = datetime.datetime(2020,12,3,23,50,00)
-time_of_last_scrape = None
-scrape(url, time_of_last_scrape)
+scrape(url)

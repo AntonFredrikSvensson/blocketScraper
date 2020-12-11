@@ -21,8 +21,11 @@ def create_cursor(connection):
   cursor = connection.cursor()
   return cursor
 
-def close_connection(cursor,connection):
-    cursor.close()
+def close_cursor(cursor):
+  cursor.close()
+  print("Cursor closed")
+
+def close_connection(connection):
     connection.close()
     print("MySQL connection is closed")
 
@@ -40,7 +43,7 @@ def create_table(cursor, table_name, columns):
   # columns format: list of dicts 
   #   dict example: {"column_name":"location", "data_type":"VARCHAR", "column_lenght":255, "primary_key":False, "auto_increment":False,"not_null":False,"unique":False}
   column_string = build_column_string(columns)
-  cursor.execute("CREATE TABLE " + table_name + " " + column_string)
+  cursor.execute("CREATE TABLE IF NOT EXISTS " + table_name + " " + column_string)
 
 def build_column_string(columns):
   column_string = "("
@@ -65,6 +68,24 @@ def build_column_string_for_insert(list_of_columns):
     insert_string = insert_string[:len(insert_string)-2]
     return insert_string
 
+def build_values_string_for_insert(list_of_values):
+    #Building a string to be used in insert statements based on a list of values
+    #Example input: ['AntonLand2','AL2.png',2]
+    #Example output: 'AntonLand2', 'AL2.png', 2
+    values_string =''
+    for value in list_of_values:
+        #print(key)
+        #print(columns_and_input[key])
+        if value == None:
+            input_value = 'NULL'
+        elif isinstance(value,(float,int)):
+            input_value = str(value)
+        elif isinstance(value,str):
+            input_value = "'" + str(value) + "'"
+        values_string += input_value + ', '
+    values_string = values_string[:len(values_string)-2]
+    return values_string
+
 def build_values_placeholders(list_of_columns):
     # Format 
     # exmple input: ['Name','Flag', 'save_number']
@@ -74,6 +95,33 @@ def build_values_placeholders(list_of_columns):
         placeholders_string += '%s, '
     placeholders_string = placeholders_string[:len(placeholders_string)-2]
     return placeholders_string
+
+#TODO Fix this function to work with datetime input
+def insert_data(connection, cursor, table_name, list_of_columns, list_of_values):
+    #connection_string including database
+    #format: 
+    # list_of_columns = ['Name','Flag', 'save_number']
+    # list_of_values = ['AntonLand2','AL2.png',2]
+
+    #combining columns into an insert string that is used in the query
+    insert_string = build_column_string_for_insert(list_of_columns)
+
+    values_string = build_values_string_for_insert(list_of_values)
+    try:
+        query_string = """INSERT INTO {} ({}) VALUES ({}) """.format(table_name, insert_string,values_string)
+        cursor.execute(query_string)
+        connection.commit()
+        print("data inserted successfully ")
+    except mysql.connector.Error as error:
+         print("Failed to insert data: {}".format(error))
+
+def temporary_scrape_history_insert(connection,cursor,time_of_scrape,time_of_first_article,no_of_articles):
+  table_name = "scrape_log"
+  cursor.execute("INSERT INTO scrape_log (time_of_first_article, time_of_scrape, no_of_articles) VALUES (%s, %s, %s)",
+               (time_of_first_article, time_of_scrape, no_of_articles))
+  connection.commit()
+
+
 
 def insert_many_data(cursor, connection, list_of_columns, records_to_insert, table_name):
     #Format:
@@ -105,3 +153,123 @@ def delete_data(cursor, connection, table_name):
         connection.commit()
     except mysql.connector.Error as error:
          print("Failed to delete data in MySQL: {}".format(error))
+
+def field_and_increment_string(field_name, increment):
+    #input field_name, 3
+    #output filed_name = field_name + 3
+    return str(field_name) + ' = ' + str(field_name) + ' + ' + str(increment)
+
+def columns_and_input_string_for_update(columns_and_input):
+    #building a string of columns and input for a update satatment from a dictionary with keys and value pairs
+    #example input: {'save_number': 1, 'Flag':'Italy.png'}
+    #example output: save_number = 1, Flag = 'Italy.png'
+    #example None as input: columns_and_input = {'save_number': None}
+    #Output: save_number IS NULL
+    #example increment as input: {'save_number':increment1}
+    #Output: 'savenumber = save_number + 1'
+    input_string =''
+    for key in columns_and_input:
+        #print(key)
+        #print(columns_and_input[key])
+        value = columns_and_input[key]
+        if value == None:
+            input_string = key + ' IS NULL'
+            return input_string
+        elif isinstance(columns_and_input[key],(float,int)):
+            input_value = str(columns_and_input[key])
+        elif value[:9] == 'increment':
+            field_and_increment = field_and_increment_string(key, value[9:])
+            input_value = field_and_increment
+        elif isinstance(columns_and_input[key],str):
+            input_value = "'" + str(columns_and_input[key]) + "'"
+        input_string +=key + ' = ' + input_value + ', '
+    input_string = input_string[:len(input_string)-2]
+    return input_string
+
+def condition_string_from_dict(condition_dict):
+    #example input: condition_dict = {'id':2}
+    #example output: WHERE id = 2
+    #example input multiple values, one key: condition_dict = {'id':[2,3]}
+    #example output  WHERE `id`  IN (2,3);
+    #example None as input: condition_dict = {'save_number': None}
+    #Output: save_number IS NULL
+
+    #chech for multiple items
+    no_of_items = len(condition_dict)
+    if no_of_items < 2:
+        #checking for muliple values
+        for key in condition_dict:
+            if isinstance(condition_dict[key],list):
+                condition_string= 'WHERE ' + key +' IN ('
+                for item in condition_dict[key]:
+                    condition_string += str(item) +','
+                condition_string = condition_string[:len(condition_string)-1]
+                condition_string+= ')'
+                return condition_string
+
+        #building condition string for single values
+        if condition_dict:
+            condition_string = 'WHERE ' + columns_and_input_string_for_update(condition_dict)
+            return condition_string
+        else:
+            return False
+    else:
+        condition_string = 'WHERE '
+        counter = 0
+        for key in condition_dict:
+            if isinstance(condition_dict[key],list):
+                condition_string= 'WHERE ' + key +' IN ('
+                for item in condition_dict[key]:
+                    condition_string += str(item) +','
+                condition_string = condition_string[:len(condition_string)-1]
+                condition_string+= ')'
+
+        # for key,value in condition_dict.items():
+        #     if isinstance(condition_dict[value],list):
+        #         condition_string += key + ' IN ('
+        #         for item in condition_dict[value]:
+        #             condition_string += str(item) +','
+        #         condition_string = condition_string[:len(condition_string)-1]
+        #         condition_string+= ')'
+            else:
+                temp_dict = {}
+                temp_dict[key] = condition_dict[key]
+                condition_string += columns_and_input_string_for_update(temp_dict)
+            counter += 1
+            if counter < no_of_items:
+                condition_string += ' AND '
+
+    #print(condition_string)
+    return condition_string
+
+def select_data(cursor,connection,selection_columns_list,table_name,condition_dict):
+    #@params
+    # selection_columns_list
+    # Example input: ['Name','Flag', 'save_number']
+    # condition_dict#example input: condition_dict = {'id':2}
+    #example output: WHERE id = 2
+    #example None as input: condition_dict = {'save_number': None}
+    #Output: save_number IS NULL
+    column_string = build_column_string_for_insert(selection_columns_list)
+
+    if condition_dict:
+        #will only work whith one condition currently, the function will return ',' as seperator instead of AND
+        condition_string = condition_string_from_dict(condition_dict)
+    else:
+        condition_string = ''
+
+    try:
+        if condition_string:
+            MySQLQuery = "SELECT {} FROM {} {}".format(column_string, table_name, condition_string)
+        else:
+            MySQLQuery = "SELECT {} FROM {}".format(column_string, table_name)
+        #print(MySQLQuery)
+        cursor.execute(MySQLQuery)
+        records = cursor.fetchall()
+        #records = cursor.fetchone()
+        print("Total number of rows in selection is: ", cursor.rowcount)
+
+    except mysql.connector.Error as error:
+         print("Failed to select data: {}".format(error))
+    finally:
+      return records
