@@ -3,14 +3,15 @@ import urllib.request
 import datetime
 import BlocketDateTime
 import mysql_scripts
+import os
 
 def scrape(url):
-    connection_string_database = {
-    "host":"localhost",
-    "user":"root",
-    "password":"root",
-    "database":"blocket_data"
+    connection_string_instance = {
+    "host": os.environ.get('BLOCKET_SCRAPER_DB_HOST'),
+    "user": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
+    "password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD')
     }
+    connection_string_database = connection_string_instance | {"database":"blocket_data"}
     connection = mysql_scripts.create_connection(connection_string_database, "local_database")
     time_of_last_scrape = get_time_of_last_scrape(connection)
     sauce = urllib.request.urlopen(url).read()

@@ -1,18 +1,14 @@
 import mysql_scripts
 import datetime
+import os
 
 connection_string_instance = {
-  "host":"localhost",
-  "user":"root",
-  "password":"root",
+  "host": os.environ.get('BLOCKET_SCRAPER_DB_HOST'),
+  "user": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
+  "password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD')
 }
 
-connection_string_database = {
-  "host":"localhost",
-  "user":"root",
-  "password":"root",
-  "database":"blocket_data"
-}
+connection_string_database = connection_string_instance | {"database":"blocket_data"}
 
 database_name = "blocket_data"
 table_name = "articles"
@@ -95,8 +91,14 @@ def check_duplicates(connection_string_database):
       duplicate_list.append(item)
   print(duplicate_list)
 
+def test_environmental_variables(connection_string):
+  print(connection_string["password"])
 
-check_duplicates(connection_string_database)
+
+
+# test_environmental_variables(connection_string_database)
+
+# check_duplicates(connection_string_database)
 
 # test_select_data(connection_string_database)
 

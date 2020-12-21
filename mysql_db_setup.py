@@ -1,17 +1,13 @@
 import mysql_scripts
+import os
 
 connection_string_instance = {
-  "host":"localhost",
-  "user":"root",
-  "password":"root",
+  "host": os.environ.get('BLOCKET_SCRAPER_DB_HOST'),
+  "user": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
+  "password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD')
 }
 
-connection_string_database = {
-  "host":"localhost",
-  "user":"root",
-  "password":"root",
-  "database":"blocket_data"
-}
+connection_string_database = connection_string_instance | {"database":"blocket_data"}
 
 def create_database(connection_string_instance):
     pass
@@ -39,6 +35,7 @@ def create_tables(connection_string_database):
     for table in tables_and_columns:
         for key, value in table.items():
             mysql_scripts.create_table(cursor, key, value)
-    mysql_scripts.close_connection(cursor,connection)
+    mysql_scripts.close_cursor(cursor)
+    mysql_scripts.close_connection(connection)
 
 # create_tables(connection_string_database)
