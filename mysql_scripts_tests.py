@@ -1,6 +1,11 @@
 import mysql_scripts
 import datetime
 import os
+import logging
+
+# setting logging config: time, logginglevel, message
+logging.basicConfig(filename='test.log', level=logging.DEBUG, 
+                    format='%(asctime)s:%(levelname)s:%(message)s')
 
 connection_string_instance = {
   "host": os.environ.get('BLOCKET_SCRAPER_DB_HOST'),
@@ -94,8 +99,11 @@ def check_duplicates(connection_string_database):
 def test_environmental_variables(connection_string):
   print(connection_string["password"])
 
+def test_connect_to_database(connection_string_database):
+  connection = mysql_scripts.create_connection(connection_string_database, "local_database")
+  logging.info('connected to database')
 
-
+test_connect_to_database(connection_string_database)
 # test_environmental_variables(connection_string_database)
 
 # check_duplicates(connection_string_database)
