@@ -7,7 +7,7 @@ import os
 import logging
 
 # setting logging config: time, logginglevel, message
-logging.basicConfig(filename='general_scraper.log', level=logging.DEBUG, 
+logging.basicConfig(filename='general_scraper.log', level=logging.INFO, 
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
 def scrape():
