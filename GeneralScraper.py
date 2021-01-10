@@ -4,6 +4,11 @@ import datetime
 import BlocketDateTime
 import mysql_scripts
 import os
+import logging
+
+# setting logging config: time, logginglevel, message
+logging.basicConfig(filename='general_scraper.log', level=logging.INFO, 
+                    format='%(asctime)s:%(levelname)s:%(message)s')
 
 def scrape():
     # Desc: scrapes all blocket articles from the main page, created since the last scrape
@@ -11,6 +16,8 @@ def scrape():
     # @output no output
     # Inserts articles in articles table
     # Insert Scrape details to scrape log
+
+    logging.info('---Start of scrape()---')
 
     url = 'https://www.blocket.se/annonser/hela_sverige?'
     #create database connection
@@ -20,6 +27,7 @@ def scrape():
     "password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD'),
     "database":"blocket_data"
     }
+
     connection = mysql_scripts.create_connection(connection_string_database, "local_database")
     time_of_last_scrape = get_time_of_last_scrape(connection)
 
@@ -31,6 +39,8 @@ def scrape():
     # if no scrape has been done will a scrape be done to chech how many pages blocket holds in total
     if(time_of_last_scrape == None):
         no_of_pages = fetch_pages(soup)
+        logging.info('no previous scrape')
+        logging.info('pages found: {}'.format(no_of_pages))
     # if a previous scrape has been done, a dummy number is set for pages. This is because the loop will stop when the time of
     # the last scrape is reached and all pages will not be iterated anyway
     else:
@@ -51,10 +61,12 @@ def scrape():
         if scraped_page == None:
             # if the there is no content in scraped page, the time of last scrape has been reached
             # and the loop can stopp
+            logging.info('all pages has been scraped')
             break
         if scraped_page[len(scraped_page)-1] == None:
             # if the last item is None, the page contained less than 40 articles. This means that is was the last page
             # the last item is removed and the loop is ended after the articles have been appended to the list
+            logging.info('last scraped page')
             scraped_page.pop()
             quit = True
         for item in scraped_page:
@@ -62,26 +74,30 @@ def scrape():
             pages_content.append(item)
         if quit:
             break
-        #TODO change print to log
-        print('page: ' + str(page +1))
+        logging.debug('page: ' + str(page +1))
         # every 250th page is an insert done in the database.
         # this is done to avoid a huge database job at the end of the program
         # and so that some pages will be inserted to the database in case 
         if page != 0 and page % 250 == 0:
             insert_articles_to_database(connection,pages_content)
+            logging.info('inserted to articles table')
             no_of_articles += len(pages_content)
             pages_content = []
     #inserting remaining articles after the loop is finished
     insert_articles_to_database(connection,pages_content)
+    logging.info('inserted to articles table')
     no_of_articles += len(pages_content)
     time_of_scrape = datetime.datetime.now()
     # inserting to scrape-details log
     insert_to_scrape_log(connection,time_of_scrape, time_of_first_article, no_of_articles)
+    logging.info('inserted to scrape_history table')
+    logging.info('---end of scrape()---')
 
 def fetch_pages(soup):
-    # Desc: finds number of pages from beautiful soup scraped blocked serach main page
+    # Desc: finds number of pages from beautiful soup scraped blocket serach main page
     # @Parms soup:string (html-page fetched with beautiful soup)
     # @output max_page_number:int (number of pages)
+    logging.debug('---start fetch_pages()---')
     links = soup.findAll('a')
     max_page_number = 0
     for link in links:
@@ -91,23 +107,29 @@ def fetch_pages(soup):
             page_number = int(href_split[1])
             if page_number > max_page_number:
                 max_page_number = page_number
+    logging.debug('---end fetch_pages()---')
     return max_page_number
     
 def scrape_page(soup, time_of_last_scrape):
     # Desc: takes a Blocket search html page and returns a list of articles
     # @Parms soup:string (html-page fetched with beautiful soup), time_of_last_scrape:datetimeobject
     # @output articles_content:list
+
+    logging.debug('---start scrape_page()---')
     articles = soup.findAll('article')
     if len(articles)==0:
         return None
     article_list = extract_articles(articles)
     articles_content = extract_article_content(article_list, time_of_last_scrape)
+    logging.debug('---end scrape_page()---')
     return articles_content
 
 def extract_articles(articles):
     # Desc: takes list of articles, pares the divs and returns a list of trimmed articles
     # @Parms articles:list 
     # @output article_list:list
+
+    logging.debug('---start extract_articles()---')
     article_list =[]
     for article in articles:
         wrapper_list = []
@@ -118,12 +140,14 @@ def extract_articles(articles):
         for div in content_wrapper:
             content_divs.append(div)
         article_list.append(content_divs)
+    logging.debug('---end extract_articles()---')
     return article_list
 
 def extract_article_content(article_list, time_of_last_scrape):
     # Desc: takes a list of trimmed articles, parses the components for each article, returns list of complete articles
     # @Parms article_list:list (list of trimmed articles), time_of_last_scrape:datetimeobject
     # @output articles_content:list
+    logging.debug('---start extract_article_content()---')
     articles_content = []
     for article in article_list:
         location_time_topinfo = extract_location_time_topinfo(article[0])
@@ -132,7 +156,11 @@ def extract_article_content(article_list, time_of_last_scrape):
         sales_info_wrapper = extract_price(article[3])
         article_datetime = BlocketDateTime.blocket_datetime_to_datetime(location_time_topinfo[1])
         if article_datetime == None:
-            #TODO errorlog missing date
+            # constructing a string to pass along to log
+            error_time_top_info = ""
+            for item in location_time_topinfo:
+                error_time_top_info += item
+            logging.warning('Article missing missing date and time. Id: {}, Href: {}, time_top_info: {}'.format(int(subject_wrapper[2]), subject_wrapper[0], error_time_top_info))
             article_datetime = datetime.datetime.now()
         if time_of_last_scrape != None:
             if time_of_last_scrape > article_datetime:
@@ -147,6 +175,7 @@ def extract_article_content(article_list, time_of_last_scrape):
                     sales_info_wrapper[0],      # price
                     sales_info_wrapper[1])      # price_text
         articles_content.append(content)
+    logging.debug('---end extract_article_content()---')
     return articles_content
 
 
@@ -155,6 +184,7 @@ def extract_location_time_topinfo(location_time_wrapper):
     # which is returned in a list
     # @Parms location_time_wrapper:list
     # @output location_time_topinfo:list
+    logging.debug('---start extract_location_time_topinfo()---')
     location_time_list = []
     for item in location_time_wrapper:
         location_time_list.append(item)
@@ -169,6 +199,7 @@ def extract_location_time_topinfo(location_time_wrapper):
         location = ""
     top_info = location_topinfo_list[0].text
     location_time_topinfo = [location, time, top_info]
+    logging.debug('---end extract_location_time_topinfo()---')
     return location_time_topinfo
 
 def extract_subject(subject_wrapper):
@@ -176,12 +207,14 @@ def extract_subject(subject_wrapper):
     # and returns it in a list
     # @Parms subject_wrapper:list
     # @output href_subject_id:list
+    logging.debug('---start extract_subject()---')
     href = subject_wrapper.h2.a.get("href")
     subject_text = subject_wrapper.h2.a.span.text
     last_slash = href.rfind('/',0,len(href)) ##reverse find
     characters_to_parse = len(href) - last_slash -1
     item_id = href[-characters_to_parse:]
     href_subject_id = [href, subject_text, item_id]
+    logging.debug('---end extract_subject()---')
     return href_subject_id
 
 def extract_price(sales_info):
@@ -189,6 +222,7 @@ def extract_price(sales_info):
     # and returns it in a list
     # @Parms subject_wrapper:list
     # @output price_info:list
+    logging.debug('---start extract_price()---')
     try:
         price_text = sales_info.div.div.span.div.text
     except:
@@ -205,9 +239,10 @@ def extract_price(sales_info):
         try:
             price = int(price)
         except:
-            #TODO add error log message (example price/month '2995/mån')
+            logging.warning('price could not be converted to int. Price: {}, Price text: {}'.format(price, price_text))
             price = None
     price_info = [price, price_text]
+    logging.debug('---end extract_price()---')
     return price_info
 
 def insert_articles_to_database(connection,records_to_insert):
@@ -215,11 +250,13 @@ def insert_articles_to_database(connection,records_to_insert):
     # @Parms connection:my_sql_connection ,records_to_insert:list of lists
     # @output no output
     # inserts records to articles table
+    logging.debug('---start insert_articles_to_database()---')
     cursor = mysql_scripts.create_cursor(connection)
     list_of_columns = ["location", "time", "top_info", "href", "subject_text", "item_id", "price", "price_text"]
     table_name = "articles"
     mysql_scripts.insert_many_data(cursor, connection, list_of_columns, records_to_insert, table_name)
     mysql_scripts.close_cursor(cursor)
+    logging.debug('---end insert_articles_to_database()---')
     
 
 def insert_to_scrape_log(connection, time_of_scrape,time_of_first_article,no_of_articles):
@@ -227,15 +264,18 @@ def insert_to_scrape_log(connection, time_of_scrape,time_of_first_article,no_of_
     # @Parms connection:my_sql_connection, time_of_scrape:datetimeobject, time_of_first_article:datetimeobject ,no_of_articles:int
     # @output no output
     # inserts to scrape_log table
+    logging.debug('---start insert_to_scrape_log()---')
     cursor = mysql_scripts.create_cursor(connection)
     mysql_scripts.temporary_scrape_history_insert(connection,cursor,time_of_scrape,time_of_first_article,no_of_articles)
     mysql_scripts.close_cursor(cursor)
+    logging.debug('---end insert_to_scrape_log()---')
 
 
 def get_time_of_last_scrape(connection):
     # Desc: connects to scrape_log, finds latest scrape, returns latest scrape time
     # @Parms connection:my_sql_connection
     # @output time_of_first_article:datetimeobject
+    logging.debug('---start get_time_of_last_scrape()---')
     cursor = mysql_scripts.create_cursor(connection)
     table_name = "scrape_log"
     condition_dict = None
@@ -243,6 +283,7 @@ def get_time_of_last_scrape(connection):
     data = mysql_scripts.select_data(cursor,connection,selection_columns_list,table_name,condition_dict)
     mysql_scripts.close_cursor(cursor)
     time_of_first_article = data[-1][0]
+    logging.debug('---end get_time_of_last_scrape()---')
     return time_of_first_article
 
 scrape()
