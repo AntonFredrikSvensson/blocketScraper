@@ -15,6 +15,7 @@ def create_database(connection_string_instance):
 def create_tables(connection_string_database):
     tables_and_columns = [
     {'articles':[
+    {"column_name":"id", "data_type":"INT", "primary_key":True, "auto_increment":True,"not_null":True,"unique":True},
     {"column_name":"location", "data_type":"VARCHAR", "column_lenght":255, "primary_key":False, "auto_increment":False,"not_null":False,"unique":False},
     {"column_name":"time", "data_type":"DATETIME", "primary_key":False, "auto_increment":False,"not_null":False,"unique":False},
     {"column_name":"top_info", "data_type":"VARCHAR", "column_lenght":255, "primary_key":False, "auto_increment":False,"not_null":False,"unique":False},
@@ -25,6 +26,7 @@ def create_tables(connection_string_database):
     {"column_name":"price_text", "data_type":"VARCHAR", "column_lenght":255, "primary_key":False, "auto_increment":False,"not_null":False,"unique":False}
     ]},
     {'scrape_log':[
+    {"column_name":"id", "data_type":"INT", "primary_key":True, "auto_increment":True,"not_null":True,"unique":True},
     {"column_name":"time_of_scrape", "data_type":"DATETIME", "primary_key":False, "auto_increment":False,"not_null":False,"unique":False},
     {"column_name":"time_of_first_article", "data_type":"DATETIME", "primary_key":False, "auto_increment":False,"not_null":False,"unique":False},
     {"column_name":"no_of_articles", "data_type":"INT", "primary_key":False, "auto_increment":False,"not_null":False,"unique":False}
@@ -38,4 +40,4 @@ def create_tables(connection_string_database):
     mysql_scripts.close_cursor(cursor)
     mysql_scripts.close_connection(connection)
 
-# create_tables(connection_string_database)
+create_tables(connection_string_database)
