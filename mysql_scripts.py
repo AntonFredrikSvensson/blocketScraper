@@ -2,7 +2,7 @@ import mysql.connector
 import logging
 
 # setting logging config: time, logginglevel, message
-logging.basicConfig(filename='mysql_scripts.log', level=logging.DEBUG,
+logging.basicConfig(filename='mysql_scripts.log', level=logging.INFO,
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
 

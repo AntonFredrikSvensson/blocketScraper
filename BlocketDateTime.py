@@ -1,5 +1,9 @@
 import datetime
+import logging
 
+# setting logging config: time, logginglevel, message
+logging.basicConfig(filename='blocket_datetime.log', level=logging.INFO, 
+                    format='%(asctime)s:%(levelname)s:%(message)s')
     
 blocket_weekdays = {
     "måndags":0,
@@ -33,6 +37,8 @@ def blocket_datetime_to_datetime(blocket_date):
     # "I söndags 14:32", "I fredags 15:12", "I tisdags 8:22","I torsdags 11:11", 
     # "10 apr. 18:42"]
     # @output converted_date:datetime object
+
+    logging.debug('---Start of blocket_datetime_to_datetime()---')
     parsed_date = blocket_date.split(" ")
     #today and yesterday
     if parsed_date[0] == "Idag":
@@ -65,11 +71,12 @@ def blocket_datetime_to_datetime(blocket_date):
                 converted_date = datetime.datetime(article_year,article_month,article_day).date()
             except:
                 #date could not be set
-                #TODO add errorlog
+                logging.warning('Date could not be set. Blocket date: {}'.format(blocket_date))
                 return None
     #fetching time
     parsed_length = len(parsed_date)
     hours_and_minutes = parsed_date[parsed_length-1].split(":")
     #creating datetime object
     converted_date = datetime.datetime(converted_date.year,converted_date.month, converted_date.day, int(hours_and_minutes[0]), int(hours_and_minutes[1]))
+    logging.debug('---End of blocket_datetime_to_datetime()---')
     return converted_date
