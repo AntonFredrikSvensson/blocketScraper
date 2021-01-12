@@ -160,7 +160,7 @@ def extract_article_content(article_list, time_of_last_scrape):
             error_time_top_info = ""
             for item in location_time_topinfo:
                 error_time_top_info += item
-            logging.warning('Article missing missing date and time. Id: {}, Href: {}, time_top_info: {}'.format(int(subject_wrapper[2]), subject_wrapper[0], error_time_top_info))
+            logging.warning('Article missing missing date and time. see blocket_datetime.log for more info. Id: {}, Href: {}, time_top_info: {}'.format(int(subject_wrapper[2]), subject_wrapper[0], error_time_top_info))
             article_datetime = datetime.datetime.now()
         if time_of_last_scrape != None:
             if time_of_last_scrape > article_datetime:
