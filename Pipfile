@@ -7,6 +7,7 @@ name = "pypi"
 bs4 = "*"
 lxml = "*"
 mysql-connector-python = "*"
+pyodbc = "*"
 
 [dev-packages]
 pylint = "*"
