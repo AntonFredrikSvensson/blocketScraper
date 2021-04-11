@@ -69,3 +69,5 @@ def drop_table(cursor,connection):
 # create_table_scrape_log(cursor, connection)
 
 # scrape_history_start_up_date(cursor,connection)
+
+print(connection)
