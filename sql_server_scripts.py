@@ -4,7 +4,7 @@ import datetime
 import logging
 
 # setting logging config: time, logginglevel, message
-logging.basicConfig(filename='mysql_scripts.log', level=logging.INFO,
+logging.basicConfig(filename='sql_server_scripts.log', level=logging.INFO,
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
 def create_connection(connection_string, type_of_connection):
@@ -95,5 +95,6 @@ def insert_many_articles(cursor, connection, articles):
         cursor.executemany(query, articles)
         connection.commit()
         logging.info('data inserted to Article table')
-    except:
-        logging.warning('unable to insert data into Article table')
+    except pyodbc.Error as e:
+        print(e)
+        logging.warning('Unable to insert data into Article table. Error message: ' + str(e))
