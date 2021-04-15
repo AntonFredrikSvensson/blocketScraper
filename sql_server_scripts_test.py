@@ -18,29 +18,48 @@ connection_string_database = {
 
 connection = sql_server_scripts.create_connection(connection_string_database, "local_database")
 cursor = sql_server_scripts.create_cursor(connection)
-# sql_server_scripts.close_cursor(cursor)
-# sql_server_scripts.close_connection(connection)
-
-
 
 def select_last_scrape(cursor,connection):
-    cursor.execute("SELECT TOP 1 [TimeOfFirstArticle] FROM ScrapeLog ORDER BY ScrapeID DESC")
-    time_of_first_article = cursor.fetchone()
+    try:
+        cursor.execute("SELECT TOP 1 [TimeOfFirstArticle] FROM ScrapeLog ORDER BY ScrapeID DESC")
+        time_of_first_article = cursor.fetchone()
+    except pyodbc.connector.Error as error:
+        logging.warning("Failed to select data from table {}: {}".format("ScrapeLog", error))
     return time_of_first_article[0]
 
-time_of_first_article = select_last_scrape(cursor,connection)
-print(time_of_first_article)
-# def get_time_of_last_scrape(connection):
-#     # Desc: connects to scrape_log, finds latest scrape, returns latest scrape time
-#     # @Parms connection:my_sql_connection
-#     # @output time_of_first_article:datetimeobject
-#     logging.debug('---start get_time_of_last_scrape()---')
-#     cursor = sql_server_scripts.create_cursor(connection)
-#     table_name = "scrape_log"
-#     condition_dict = None
-#     selection_columns_list = ['time_of_first_article', 'time_of_scrape', 'no_of_articles']
-#     data = sql_server_scripts.select_data(cursor,connection,selection_columns_list,table_name,condition_dict)
-#     sql_server_scripts.close_cursor(cursor)
-#     time_of_first_article = data[-1][0]
-#     logging.debug('---end get_time_of_last_scrape()---')
-#     return time_of_first_article
+def insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_article, no_of_articles):
+    # Desc: inserting a single entry to the ScrapeLog
+    # @Parms time_of_scrape (datetime), time_of_first_article (datetime), no_of_articles(int)
+    # @output no output
+    # Insert Scrape details to scrape log
+    try:
+        cursor.execute('''
+
+                    INSERT INTO BlocketData.dbo.ScrapeLog (TimeOfScrape, TimeOfFirstArticle, NoOfArticles)
+                    VALUES (?, ?, ?)
+
+                    ''',(time_of_first_article, time_of_scrape, no_of_articles))
+        connection.commit()
+        logging.info('data inserted to table ScrapeLog')
+    except:
+        logging.warning('unable to insert data into ScrapeLog')
+
+def insert_many_articles(cursor, connection, articles):
+    # Desc: inserting muliple articles to the article table
+    # @Parms articles = [(<Location>, <Time>, <TopInfo>, <Href>, <SubjectText>, <ItemID>, <Price>, <PriceText>, <Store>), ]
+    # @output no output
+
+    query = '''insert into BlocketData.dbo.article(Location, Time, TopInfo, Href, SubjectText, ItemID, Price, PriceText, Store) 
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)'''
+
+    cursor.fast_executemany = True
+    cursor.executemany(query, articles)
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+# articles = [
+#     ('Göteborg', datetime.datetime.now(), 'Byggmaterial', 'https://www.blocket.se/annons/skane/grenstall/95144526', 'Grenställ', 95144526, 100, '100kr', False),
+#     ('Malmö', datetime.datetime.now(), 'Bil', 'https://www.blocket.se/annons/stockholm/kia_picanto_5_dorrar_1_2_cvvt_automat_gls_86hk/95144530', 'Kia', 95144530, 100000, '100000 kr', True)
+#     ]
+# insert_many_articles(cursor, connection, articles)

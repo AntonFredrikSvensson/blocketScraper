@@ -1,6 +1,7 @@
 import pyodbc
 import os
 import datetime
+import sql_server_scripts
 
 connection = pyodbc.connect('Driver={SQL Server};'
                       'Server=' + os.environ.get('BLOCKET_SCRAPER_DB_SERVER') +';'
@@ -37,7 +38,8 @@ def create_table_article(cursor,connection):
                 SubjectText nvarchar(255),
                 ItemID int,
                 Price int,
-                PriceText nvarchar(255)
+                PriceText nvarchar(255),
+                Store bit
                )
 
                ''')
@@ -49,25 +51,17 @@ def scrape_history_start_up_date(cursor, connection):
     # @output no output
     # Insert Scrape details to scrape log
 
-    TimeOfFirstArticle = datetime.datetime.now() - datetime.timedelta(3)
-    TimeOfScrape = datetime.datetime.now()
-    NoOfArticles = 0
+    time_of_first_article = datetime.datetime.now() - datetime.timedelta(3)
+    time_of_scrape = datetime.datetime.now()
+    no_of_articles = 0
 
-    cursor.execute('''
-
-                INSERT INTO BlocketData.dbo.ScrapeLog (TimeOfScrape, TimeOfFirstArticle, NoOfArticles)
-                VALUES (?, ?, ?)
-
-                ''',(TimeOfFirstArticle, TimeOfScrape, NoOfArticles))
-    connection.commit()
+    sql_server_scripts.insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_article, no_of_articles)
 
 def drop_table(cursor,connection):
     cursor.execute('DROP TABLE TestDB.dbo.scrape_log')
     connection.commit()
 
-# create_table_article(cursor,connection)
+create_table_article(cursor,connection)
 # create_table_scrape_log(cursor, connection)
 
 # scrape_history_start_up_date(cursor,connection)
-
-print(connection)

@@ -56,3 +56,44 @@ def close_connection(connection):
     connection.close()
     logging.info("database connection is closed")
     logging.debug('---start close_connection()---')
+
+def select_last_scrape(cursor,connection):
+    try:
+        cursor.execute("SELECT TOP 1 [TimeOfFirstArticle] FROM ScrapeLog ORDER BY ScrapeID DESC")
+        time_of_first_article = cursor.fetchone()
+    except pyodbc.connector.Error as error:
+        logging.warning("Failed to select data from table {}: {}".format("ScrapeLog", error))
+    return time_of_first_article[0]
+
+def insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_article, no_of_articles):
+    # Desc: inserting a single entry to the ScrapeLog
+    # @Parms time_of_scrape (datetime), time_of_first_article (datetime), no_of_articles(int)
+    # @output no output
+    # Insert Scrape details to scrape log
+    try:
+        cursor.execute('''
+
+                    INSERT INTO BlocketData.dbo.ScrapeLog (TimeOfScrape, TimeOfFirstArticle, NoOfArticles)
+                    VALUES (?, ?, ?)
+
+                    ''',(time_of_first_article, time_of_scrape, no_of_articles))
+        connection.commit()
+        logging.info('data inserted to table ScrapeLog')
+    except:
+        logging.warning('unable to insert data into ScrapeLog')
+
+def insert_many_articles(cursor, connection, articles):
+    # Desc: inserting muliple articles to the article table
+    # @Parms articles = [(<Location>, <Time>, <TopInfo>, <Href>, <SubjectText>, <ItemID>, <Price>, <PriceText>, <Store>), ]
+    # @output no output
+
+    query = '''insert into BlocketData.dbo.article(Location, Time, TopInfo, Href, SubjectText, ItemID, Price, PriceText, Store) 
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)'''
+
+    cursor.fast_executemany = True
+    try:
+        cursor.executemany(query, articles)
+        connection.commit()
+        logging.info('data inserted to Article table')
+    except:
+        logging.warning('unable to insert data into Article table')
