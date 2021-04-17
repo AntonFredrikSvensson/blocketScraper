@@ -43,7 +43,7 @@ def scrape_history_start_up_date(connection):
     # @output no output
     # Insert Scrape details to scrape log
 
-    time_of_first_article = datetime.datetime.now() - datetime.timedelta(1)
+    time_of_first_article = datetime.datetime.now() - datetime.timedelta(3)
     time_of_scrape = datetime.datetime.now()
     no_of_articles = 0
 

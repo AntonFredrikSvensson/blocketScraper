@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup, Tag
 import urllib.request
 import datetime
 import BlocketDateTime
-import mysql_scripts
+import sql_server_scripts
 import os
 import logging
 
@@ -22,13 +22,13 @@ def scrape():
     url = 'https://www.blocket.se/annonser/hela_sverige?'
     #create database connection
     connection_string_database = {
-    "host": os.environ.get('BLOCKET_SCRAPER_DB_HOST'),
-    "user": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
-    "password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD'),
-    "database":"blocket_data"
+    "Server": os.environ.get('BLOCKET_SCRAPER_DB_SERVER'),
+    "User": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
+    "Password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD'),
+    "database":"BlocketData"
     }
 
-    connection = mysql_scripts.create_connection(connection_string_database, "local_database")
+    connection = sql_server_scripts.create_connection(connection_string_database, "local_database")
     time_of_last_scrape = get_time_of_last_scrape(connection)
 
     # initial scrape
@@ -46,6 +46,7 @@ def scrape():
     else:
         no_of_pages = 200000
     for page in range(no_of_pages):
+        print(str(page) + ' of ' + str(no_of_pages))
         quit = False
         # a new scrape will need to be done for each page, the url is built using postfix "page=<page_number>"
         if page != 0:
@@ -173,7 +174,8 @@ def extract_article_content(article_list, time_of_last_scrape):
                     subject_wrapper[1],         # subject_text
                     int(subject_wrapper[2]),    # item_id
                     sales_info_wrapper[0],      # price
-                    sales_info_wrapper[1])      # price_text
+                    sales_info_wrapper[1],      # price_text
+                    False)                      # dummy value for Store
         articles_content.append(content)
     logging.debug('---end extract_article_content()---')
     return articles_content
@@ -251,11 +253,9 @@ def insert_articles_to_database(connection,records_to_insert):
     # @output no output
     # inserts records to articles table
     logging.debug('---start insert_articles_to_database()---')
-    cursor = mysql_scripts.create_cursor(connection)
-    list_of_columns = ["location", "time", "top_info", "href", "subject_text", "item_id", "price", "price_text"]
-    table_name = "articles"
-    mysql_scripts.insert_many_data(cursor, connection, list_of_columns, records_to_insert, table_name)
-    mysql_scripts.close_cursor(cursor)
+    cursor = sql_server_scripts.create_cursor(connection)
+    sql_server_scripts.insert_many_articles(cursor, connection, records_to_insert)
+    sql_server_scripts.close_cursor(cursor)
     logging.debug('---end insert_articles_to_database()---')
     
 
@@ -265,9 +265,9 @@ def insert_to_scrape_log(connection, time_of_scrape,time_of_first_article,no_of_
     # @output no output
     # inserts to scrape_log table
     logging.debug('---start insert_to_scrape_log()---')
-    cursor = mysql_scripts.create_cursor(connection)
-    mysql_scripts.temporary_scrape_history_insert(connection,cursor,time_of_scrape,time_of_first_article,no_of_articles)
-    mysql_scripts.close_cursor(cursor)
+    cursor = sql_server_scripts.create_cursor(connection)
+    sql_server_scripts.insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_article, no_of_articles)
+    sql_server_scripts.close_cursor(cursor)
     logging.debug('---end insert_to_scrape_log()---')
 
 
@@ -276,13 +276,9 @@ def get_time_of_last_scrape(connection):
     # @Parms connection:my_sql_connection
     # @output time_of_first_article:datetimeobject
     logging.debug('---start get_time_of_last_scrape()---')
-    cursor = mysql_scripts.create_cursor(connection)
-    table_name = "scrape_log"
-    condition_dict = None
-    selection_columns_list = ['time_of_first_article', 'time_of_scrape', 'no_of_articles']
-    data = mysql_scripts.select_data(cursor,connection,selection_columns_list,table_name,condition_dict)
-    mysql_scripts.close_cursor(cursor)
-    time_of_first_article = data[-1][0]
+    cursor = sql_server_scripts.create_cursor(connection)
+    time_of_first_article = sql_server_scripts.select_last_scrape(cursor, connection)
+    sql_server_scripts.close_cursor(cursor)
     logging.debug('---end get_time_of_last_scrape()---')
     return time_of_first_article
 
