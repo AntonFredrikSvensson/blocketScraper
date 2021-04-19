@@ -4,8 +4,10 @@ import datetime
 import logging
 
 # setting logging config: time, logginglevel, message
-logging.basicConfig(filename='sql_server_scripts.log', level=logging.INFO,
-                    format='%(asctime)s:%(levelname)s:%(message)s')
+logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'sql_server_scripts.log', 
+                    level=logging.DEBUG,
+                    format='%(asctime)s:%(levelname)s:%(message)s',
+                    force=True)
 
 def create_connection(connection_string, type_of_connection):
     # @param connection_string as dict

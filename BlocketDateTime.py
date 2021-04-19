@@ -1,10 +1,13 @@
 import datetime
 import logging
+import os
 
 # setting logging config: time, logginglevel, message
-logging.basicConfig(filename='blocket_datetime.log', level=logging.INFO, 
-                    format='%(asctime)s:%(levelname)s:%(message)s')
-    
+logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'blocket_datetime.log', 
+                    level=logging.DEBUG,
+                    format='%(asctime)s:%(levelname)s:%(message)s',
+                    force=True)
+
 blocket_weekdays = {
     "måndags":0,
     "tisdags":1,

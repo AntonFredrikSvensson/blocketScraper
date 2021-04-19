@@ -7,8 +7,10 @@ import os
 import logging
 
 # setting logging config: time, logginglevel, message
-logging.basicConfig(filename='general_scraper.log', level=logging.INFO, 
-                    format='%(asctime)s:%(levelname)s:%(message)s')
+logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'general_scraper.log', 
+                    level=logging.DEBUG,
+                    format='%(asctime)s:%(levelname)s:%(message)s',
+                    force=True)
 
 def scrape():
     # Desc: scrapes all blocket articles from the main page, created since the last scrape
@@ -282,4 +284,5 @@ def get_time_of_last_scrape(connection):
     logging.debug('---end get_time_of_last_scrape()---')
     return time_of_first_article
 
-scrape()
+if __name__ == "__main__":
+    scrape()

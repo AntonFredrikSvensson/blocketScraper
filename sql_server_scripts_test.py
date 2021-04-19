@@ -4,9 +4,10 @@ import datetime
 import logging
 import sql_server_scripts
 
-# setting logging config: time, logginglevel, message
-logging.basicConfig(filename='sql_server_scripts_test.log', level=logging.DEBUG,
-                    format='%(asctime)s:%(levelname)s:%(message)s')
+logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'sql_server_scripts_test.log', 
+                    level=logging.DEBUG,
+                    format='%(asctime)s:%(levelname)s:%(message)s',
+                    force=True)
 
 connection_string_database = {
     "Server": os.environ.get('BLOCKET_SCRAPER_DB_SERVER'),
@@ -23,6 +24,7 @@ def select_last_scrape(cursor,connection):
     try:
         cursor.execute("SELECT TOP 1 [TimeOfFirstArticle] FROM ScrapeLog ORDER BY ScrapeID DESC")
         time_of_first_article = cursor.fetchone()
+        logging.info("time of first article fetched")
     except pyodbc.connector.Error as error:
         logging.warning("Failed to select data from table {}: {}".format("ScrapeLog", error))
     return time_of_first_article[0]
@@ -63,3 +65,5 @@ def insert_many_articles(cursor, connection, articles):
 #     ('Malmö', datetime.datetime.now(), 'Bil', 'https://www.blocket.se/annons/stockholm/kia_picanto_5_dorrar_1_2_cvvt_automat_gls_86hk/95144530', 'Kia', 95144530, 100000, '100000 kr', True)
 #     ]
 # insert_many_articles(cursor, connection, articles)
+
+# print(select_last_scrape(cursor,connection))
