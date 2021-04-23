@@ -3,8 +3,15 @@ import os
 import datetime
 import logging
 import sql_server_scripts
+import environment
 
-logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'sql_server_scripts_test.log', 
+if environment.current == 'test':
+    logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'test_env_sql_server_scripts_test.log', 
+                    level=logging.DEBUG,
+                    format='%(asctime)s:%(levelname)s:%(message)s',
+                    force=True)
+else:
+    logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'sql_server_scripts_test.log', 
                     level=logging.DEBUG,
                     format='%(asctime)s:%(levelname)s:%(message)s',
                     force=True)
@@ -13,11 +20,15 @@ connection_string_database = {
     "Server": os.environ.get('BLOCKET_SCRAPER_DB_SERVER'),
     "User": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
     "Password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD'),
-    "database":"BlocketData"
     }
+if environment.current == 'test':
+    connection_string_database["database"] = "BlocketDataTest"
+    type_of_connection = 'local_database_test'
+else:
+    connection_string_database["database"] = "BlocketData"
+    type_of_connection = 'local_database'
 
-
-connection = sql_server_scripts.create_connection(connection_string_database, "local_database")
+connection = sql_server_scripts.create_connection(connection_string_database, type_of_connection)
 cursor = sql_server_scripts.create_cursor(connection)
 
 def select_last_scrape(cursor,connection):
@@ -37,7 +48,7 @@ def insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_a
     try:
         cursor.execute('''
 
-                    INSERT INTO BlocketData.dbo.ScrapeLog (TimeOfScrape, TimeOfFirstArticle, NoOfArticles)
+                    INSERT INTO ScrapeLog (TimeOfScrape, TimeOfFirstArticle, NoOfArticles)
                     VALUES (?, ?, ?)
 
                     ''',(time_of_first_article, time_of_scrape, no_of_articles))
@@ -51,7 +62,7 @@ def insert_many_articles(cursor, connection, articles):
     # @Parms articles = [(<Location>, <Time>, <TopInfo>, <Href>, <SubjectText>, <ItemID>, <Price>, <PriceText>, <Store>), ]
     # @output no output
 
-    query = '''insert into BlocketData.dbo.article(Location, Time, TopInfo, Href, SubjectText, ItemID, Price, PriceText, Store) 
+    query = '''insert into Article(Location, Time, TopInfo, Href, SubjectText, ItemID, Price, PriceText, Store) 
     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)'''
 
     cursor.fast_executemany = True

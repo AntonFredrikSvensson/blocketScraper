@@ -2,14 +2,13 @@ import pyodbc
 import os
 import datetime
 import sql_server_scripts
+import environment
 
-connection = pyodbc.connect('Driver={SQL Server};'
-                      'Server=' + os.environ.get('BLOCKET_SCRAPER_DB_SERVER') +';'
-                      'Database=BlocketData;'
-                      'User=' + os.environ.get('BLOCKET_SCRAPER_DB_USER') + ';'
-                      'Trusted_Connection=yes;')
-
-cursor = connection.cursor()
+connection_string = {
+    "Server": os.environ.get('BLOCKET_SCRAPER_DB_SERVER'),
+    "User": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
+    "Password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD'),
+    }
 
 def create_table_scrape_log(cursor,connection):
     cursor.execute('''
@@ -57,11 +56,16 @@ def scrape_history_start_up_date(cursor, connection):
 
     sql_server_scripts.insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_article, no_of_articles)
 
-def drop_table(cursor,connection):
-    cursor.execute('DROP TABLE TestDB.dbo.scrape_log')
-    connection.commit()
 
-create_table_article(cursor,connection)
-# create_table_scrape_log(cursor, connection)
+def set_up_script(connection_string):
+    if environment.current == 'test':
+        type_of_connection = 'local_database_test'
+    else:
+        type_of_connection = 'local_database'
+    connection = sql_server_scripts.create_connection(connection_string,type_of_connection)
+    cursor = sql_server_scripts.create_cursor(connection)
+    create_table_article(cursor,connection)
+    create_table_scrape_log(cursor, connection)
+    scrape_history_start_up_date(cursor,connection)
 
-# scrape_history_start_up_date(cursor,connection)
+# set_up_script(connection_string)

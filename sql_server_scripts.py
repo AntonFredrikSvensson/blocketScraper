@@ -2,12 +2,19 @@ import pyodbc
 import os
 import datetime
 import logging
+import environment
 
 # setting logging config: time, logginglevel, message
-logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'sql_server_scripts.log', 
-                    level=logging.DEBUG,
-                    format='%(asctime)s:%(levelname)s:%(message)s',
-                    force=True)
+if environment.current == 'test':
+    logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'test_env_sql_server_scripts.log', 
+                        level=logging.DEBUG,
+                        format='%(asctime)s:%(levelname)s:%(message)s',
+                        force=True)
+else:
+    logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'sql_server_scripts.log', 
+                        level=logging.DEBUG,
+                        format='%(asctime)s:%(levelname)s:%(message)s',
+                        force=True)
 
 def create_connection(connection_string, type_of_connection):
     # @param connection_string as dict
@@ -26,6 +33,16 @@ def create_connection(connection_string, type_of_connection):
             connection = pyodbc.connect('Driver={SQL Server};'
                       'Server=' + connection_string['Server'] +';'
                       'Database=BlocketData;'
+                      'User=' + connection_string['User'] + ';'
+                      'Trusted_Connection=yes;')
+            logging.info('connection to database established')
+        except:
+            logging.warning('connection to database could not be established')
+    elif type_of_connection == "local_database_test":
+        try:
+            connection = pyodbc.connect('Driver={SQL Server};'
+                      'Server=' + connection_string['Server'] +';'
+                      'Database=BlocketDataTest;'
                       'User=' + connection_string['User'] + ';'
                       'Trusted_Connection=yes;')
             logging.info('connection to database established')
@@ -72,10 +89,11 @@ def insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_a
     # @Parms time_of_scrape (datetime), time_of_first_article (datetime), no_of_articles(int)
     # @output no output
     # Insert Scrape details to scrape log
+
     try:
         cursor.execute('''
 
-                    INSERT INTO BlocketData.dbo.ScrapeLog (TimeOfScrape, TimeOfFirstArticle, NoOfArticles)
+                    INSERT INTO ScrapeLog (TimeOfScrape, TimeOfFirstArticle, NoOfArticles)
                     VALUES (?, ?, ?)
 
                     ''',(time_of_first_article, time_of_scrape, no_of_articles))
@@ -83,13 +101,14 @@ def insert_single_scrape_log(cursor, connection, time_of_scrape, time_of_first_a
         logging.info('data inserted to table ScrapeLog')
     except:
         logging.warning('unable to insert data into ScrapeLog')
+        print('not able to insert data to scrpalog')
 
 def insert_many_articles(cursor, connection, articles):
     # Desc: inserting muliple articles to the article table
     # @Parms articles = [(<Location>, <Time>, <TopInfo>, <Href>, <SubjectText>, <ItemID>, <Price>, <PriceText>, <Store>), ]
     # @output no output
 
-    query = '''insert into BlocketData.dbo.article(Location, Time, TopInfo, Href, SubjectText, ItemID, Price, PriceText, Store) 
+    query = '''insert into Article(Location, Time, TopInfo, Href, SubjectText, ItemID, Price, PriceText, Store) 
     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)'''
 
     cursor.fast_executemany = True
