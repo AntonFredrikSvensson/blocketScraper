@@ -5,12 +5,20 @@ import BlocketDateTime
 import sql_server_scripts
 import os
 import logging
+import environment
 
-# setting logging config: time, logginglevel, message
-logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'general_scraper.log', 
+if environment.current == 'test':
+    # setting logging config: time, logginglevel, message
+    logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'test_env_general_scraper.log', 
                     level=logging.DEBUG,
                     format='%(asctime)s:%(levelname)s:%(message)s',
                     force=True)
+else:
+    # setting logging config: time, logginglevel, message
+    logging.basicConfig(filename=os.environ.get('BLOCKET_SCRAPER_LOG_PATH') + 'general_scraper.log', 
+                        level=logging.DEBUG,
+                        format='%(asctime)s:%(levelname)s:%(message)s',
+                        force=True)
 
 def scrape():
     # Desc: scrapes all blocket articles from the main page, created since the last scrape
@@ -27,10 +35,16 @@ def scrape():
     "Server": os.environ.get('BLOCKET_SCRAPER_DB_SERVER'),
     "User": os.environ.get('BLOCKET_SCRAPER_DB_USER'),
     "Password":os.environ.get('BLOCKET_SCRAPER_DB_PASSWORD'),
-    "database":"BlocketData"
     }
 
-    connection = sql_server_scripts.create_connection(connection_string_database, "local_database")
+    if environment.current == 'test':
+        connection_string_database["database"]="BlocketDataTest"
+        type_of_connection = 'local_database_test'
+    else:
+        connection_string_database["database"]="BlocketData"
+        type_of_connection = 'local_database'
+
+    connection = sql_server_scripts.create_connection(connection_string_database, type_of_connection)
     time_of_last_scrape = get_time_of_last_scrape(connection)
 
     # initial scrape
