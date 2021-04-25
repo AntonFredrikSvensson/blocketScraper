@@ -1,1 +1,1 @@
-current = 'test'
+current = 'production'

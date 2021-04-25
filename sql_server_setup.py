@@ -38,7 +38,7 @@ def create_table_article(cursor,connection):
                 ItemID int,
                 Price int,
                 PriceText nvarchar(255),
-                Store bit
+                Store nvarchar(255)
                )
 
                ''')

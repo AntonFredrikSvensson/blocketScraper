@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup, Tag
 import urllib.request
-import datetime
+from datetime import datetime, timedelta
 import BlocketDateTime
 import sql_server_scripts
 import os
@@ -45,7 +45,10 @@ def scrape():
         type_of_connection = 'local_database'
 
     connection = sql_server_scripts.create_connection(connection_string_database, type_of_connection)
-    time_of_last_scrape = get_time_of_last_scrape(connection)
+    if environment.current == 'test':
+        time_of_last_scrape = datetime.now() - timedelta(hours = 1)
+    else:
+        time_of_last_scrape = get_time_of_last_scrape(connection)
 
     # initial scrape
     sauce = urllib.request.urlopen(url).read()
@@ -104,7 +107,7 @@ def scrape():
     insert_articles_to_database(connection,pages_content)
     logging.info('inserted to articles table')
     no_of_articles += len(pages_content)
-    time_of_scrape = datetime.datetime.now()
+    time_of_scrape = datetime.now()
     # inserting to scrape-details log
     insert_to_scrape_log(connection,time_of_scrape, time_of_first_article, no_of_articles)
     logging.info('inserted to scrape_history table')
@@ -178,7 +181,7 @@ def extract_article_content(article_list, time_of_last_scrape):
             for item in location_time_topinfo:
                 error_time_top_info += item
             logging.warning('Article missing missing date and time. see blocket_datetime.log for more info. Id: {}, Href: {}, time_top_info: {}'.format(int(subject_wrapper[2]), subject_wrapper[0], error_time_top_info))
-            article_datetime = datetime.datetime.now()
+            article_datetime = datetime.now()
         if time_of_last_scrape != None:
             if time_of_last_scrape > article_datetime:
                 articles_content.append(None)
@@ -191,7 +194,7 @@ def extract_article_content(article_list, time_of_last_scrape):
                     int(subject_wrapper[2]),    # item_id
                     sales_info_wrapper[0],      # price
                     sales_info_wrapper[1],      # price_text
-                    False)                      # dummy value for Store
+                    location_time_topinfo[3])   # Store
         articles_content.append(content)
     logging.debug('---end extract_article_content()---')
     return articles_content
@@ -206,6 +209,7 @@ def extract_location_time_topinfo(location_time_wrapper):
     location_time_list = []
     for item in location_time_wrapper:
         location_time_list.append(item)
+    store = location_time_list[0].text
     time = location_time_list[2].text
     location_topinfo_wrapper = location_time_list[1]
     location_topinfo_list = []
@@ -216,7 +220,7 @@ def extract_location_time_topinfo(location_time_wrapper):
     except:
         location = ""
     top_info = location_topinfo_list[0].text
-    location_time_topinfo = [location, time, top_info]
+    location_time_topinfo = [location, time, top_info, store]
     logging.debug('---end extract_location_time_topinfo()---')
     return location_time_topinfo
 
